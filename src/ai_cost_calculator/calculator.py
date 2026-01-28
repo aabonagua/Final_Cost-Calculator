@@ -278,10 +278,15 @@ def estimate_cost(
     pricing = get_pricing(pricing_path)
 
     ai_usage = data.get("ai_usage")
-    if not isinstance(ai_usage, list):
-        return payload
 
-    for usage in ai_usage:
+    if isinstance(ai_usage, dict):
+        ai_usage_list = [ai_usage] #return as dictionary
+    elif isinstance(ai_usage, list):
+        ai_usage_list = ai_usage #return as list
+    else:
+        return payload  # nothing to do
+
+    for usage in ai_usage_list:
         if not isinstance(usage, dict):
             continue
 
