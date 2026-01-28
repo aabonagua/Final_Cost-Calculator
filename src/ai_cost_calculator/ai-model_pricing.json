@@ -52,7 +52,7 @@
         "aliases": []
       },
       "gpt-5-mini": {
-        "input": 0.25,
+        "input": 5,
         "cached_input": 0.025,
         "output": 2.0,
         "aliases": []
