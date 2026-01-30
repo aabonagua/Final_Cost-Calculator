@@ -2,7 +2,9 @@ README.md
 pyproject.toml
 src/ai_cost_calculator/__init__.py
 src/ai_cost_calculator/ai-model_pricing.json
+src/ai_cost_calculator/alerts.py
 src/ai_cost_calculator/calculator.py
+src/ai_cost_calculator/demo_run.py
 src/ai_cost_calculator/pricing_loader.py
 src/ai_cost_calculator.egg-info/PKG-INFO
 src/ai_cost_calculator.egg-info/SOURCES.txt

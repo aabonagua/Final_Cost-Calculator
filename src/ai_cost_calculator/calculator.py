@@ -3,12 +3,13 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .pricing_loader import get_pricing
-
+from .alerts import notify_unknown_models_if_configured
 
 # ----------------------------
 # Simple helpers
 # ----------------------------
 
+# Helper to convert to Decimal with default
 def d(x: Any, default: str = "0") -> Decimal:
     try:
         if x is None:
@@ -17,6 +18,7 @@ def d(x: Any, default: str = "0") -> Decimal:
     except Exception:
         return Decimal(default)
 
+# Helper to convert to int with default
 def i(x: Any, default: int = 0) -> int:
     try:
         if x is None:
@@ -25,9 +27,11 @@ def i(x: Any, default: int = 0) -> int:
     except Exception:
         return default
 
+# Format Decimal as USD string with 8 decimal places
 def fmt_usd_8(amount: Decimal) -> str:
     return str(amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP))
 
+# Check if cost_usd is empty
 def is_empty_cost(v: Any) -> bool:
     return v is None or (isinstance(v, str) and v.strip() == "")
 
@@ -43,6 +47,8 @@ def get_usage_fields(usage: Dict[str, Any]) -> Dict[str, Any]:
     output_tokens = i(usage.get("output_tokens"), 0)
 
     cached_tokens = i(usage.get("cached_tokens"), 0)
+
+    # Fallback to input_token_details.cached_tokens if not present directly
     if cached_tokens == 0:
         details = usage.get("input_token_details")
         if isinstance(details, dict):
@@ -64,6 +70,7 @@ def get_usage_fields(usage: Dict[str, Any]) -> Dict[str, Any]:
 # Breakdown builders
 # ----------------------------
 
+# Line item builder for cost breakdown
 def li(name: str, quantity: Any, unit: str, unit_price: Decimal, cost: Decimal) -> Dict[str, Any]:
     return {
         "name": name,
@@ -73,6 +80,7 @@ def li(name: str, quantity: Any, unit: str, unit_price: Decimal, cost: Decimal) 
         "cost": float(cost),
     }
 
+# Cost payload builder
 def build_cost_payload(
     *,
     provider: str,
@@ -265,26 +273,27 @@ def estimate_cost(
     payload: Union[str, Dict[str, Any]],
     *,
     pricing_path: Optional[str] = None,
-    skip_non_success: bool = True
+    skip_non_success: bool = True,
+    alert_unknown_models: bool = True,
 ) -> Union[str, Dict[str, Any]]:
-    """
-    Accepts payload as JSON string or dict.
-    Returns SAME structure, only updates cost_usd when missing/empty.
-    Loads pricing from bundled JSON by default, or from pricing_path if provided.
-    """
+
     is_str = isinstance(payload, str)
     data = json.loads(payload) if is_str else payload
 
-    pricing = get_pricing(pricing_path)
+    if not isinstance(data, dict):
+        return payload
 
+    pricing = get_pricing(pricing_path)
     ai_usage = data.get("ai_usage")
 
     if isinstance(ai_usage, dict):
-        ai_usage_list = [ai_usage] #return as dictionary
+        ai_usage_list = [ai_usage]
     elif isinstance(ai_usage, list):
-        ai_usage_list = ai_usage #return as list
+        ai_usage_list = ai_usage
     else:
-        return payload  # nothing to do
+        return payload
+
+    unknown_models_map: Dict[str, Dict[str, Any]] = {}
 
     for usage in ai_usage_list:
         if not isinstance(usage, dict):
@@ -303,20 +312,35 @@ def estimate_cost(
 
         provider, _, _ = resolve_provider_model(pricing, model)
         if provider is None:
+            unknown_models_map.setdefault(model, {
+                "model": model,
+                "provider_guess": None,
+                "usage": {
+                    "timestamp": usage.get("timestamp"),
+                    "module": usage.get("module"),
+                    "status": usage.get("status"),
+                    "input_tokens": usage.get("input_tokens"),
+                    "output_tokens": usage.get("output_tokens"),
+                },
+            })
             continue
 
         try:
-            match provider:
-                case "openai":
-                    breakdown = estimate_openai_cost(pricing, model, usage)
-                case "google":
-                    breakdown = estimate_gemini_cost(pricing, model, usage)
-                case _:
-                    continue
+            if provider == "openai":
+                breakdown = estimate_openai_cost(pricing, model, usage)
+            elif provider == "google":
+                breakdown = estimate_gemini_cost(pricing, model, usage)
+            else:
+                continue
 
             usage["cost_usd"] = fmt_usd_8(d(breakdown["total"], "0"))
-
         except Exception:
             continue
+    
+    # Once the unknown are populated, it will call the notifier with the list of the unknown models and their details
+    if alert_unknown_models and unknown_models_map:
+        notify_unknown_models_if_configured(
+            unknown_models=list(unknown_models_map.values())
+        )
 
     return json.dumps(data, ensure_ascii=False) if is_str else data
