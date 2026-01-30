@@ -8,7 +8,7 @@ from ai_cost_calculator import calculator as cc
 @pytest.fixture()
 def pricing_stub():
     """
-    Small PRICING stub so tests don't depend on your real ai-model_pricing.json.
+    Small PRICING stub so tests don't depend on your real model_pricing.json.
     We'll monkeypatch cc.PRICING to this.
     """
     return {
