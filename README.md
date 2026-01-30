@@ -1,61 +1,59 @@
 # AI Cost Calculator — Quick Install & Integration Guide
 
-## Recommended integration approach (clean + safe)
-- ✅ Keep the calculator folder **outside** your repository
-- ✅ Install it into your **Python environment (venv)**
-- ✅ Your repository should not contain the calculator files — only the import + function call is added (ideally on a branch)
+This package computes `cost_usd` for AI usage records based on a bundled pricing JSON. It can optionally alert via Nooko’s internal email API when an unknown model is encountered.
 
 ---
 
-## 1) Install (if you are working on the calculator repo itself)
+## Recommended integration approach (clean + safe)
 
-Run this inside the calculator folder (the folder that contains `pyproject.toml`):
+- ✅ Keep the calculator folder **outside** your main repository
+- ✅ Install it into your **Python environment**
+- ✅ Your main repo should not contain calculator source files — only imports + function calls
 
-    ```bash
+---
+
+## 1) Install (working on this repo)
+
+Run this inside the calculator folder (the folder with `pyproject.toml`):
+
+bash
+
     pip install -e .
-    What this does
-    Installs the calculator as a local Python package
-
-Lets you import it anywhere using:
-
-    from ai_cost_calculator import estimate_cost
-Uses editable mode (code changes apply immediately)
 
 Quick check:
 
     python -c "from ai_cost_calculator import estimate_cost; print('import ok')"
+## 2) Install into another repository (ZIP handoff)
+**Step A — Unzip OUTSIDE your repo**
 
-## 2) Install it into your repository (ZIP handoff)
-### Step A — Unzip OUTSIDE your repo
-Example location (Windows):
+Example (Windows):
 
-    C:\temp\Final-Cost-Calculator\
-
+C:\temp\Final-Cost-Calculator\
 ✅ Do NOT place it inside your repo folder.
 
-### Step B — Install into your repo’s Python environment
+**Step B — Install into your Python environment**
 
-Windows (Git Bash):
+Example (Windows Git Bash):
 
     cd /c/work/your-repo
-    python -m venv .venv
-    source .venv/Scripts/activate
     pip install -e /c/temp/Final-Cost-Calculator
 
-Result:
+**Result:**
 
-Your repo stays clean (no copied files)
+Your repo stays clean (no copied package files)
 
 Your environment can import the package normally
 
 ## 3) Import in your code
-
     from ai_cost_calculator import estimate_cost
+**VS Code note:** If it shows ***“module cannot be resolved”***, 
+- select the correct Python interpreter:
 
-**Note (VS Code)**: If it shows “module cannot be resolved”, select your .venv interpreter:
-Python: Select Interpreter → choose .venv.
+    **Python:** Select Interpreter → choose the interpreter/environment where you installed the package.
 
-## 4) Use it on the payload you already generate (dict payload)
+    or **Restart VS Code**
+
+## 4) Use it (dict payload → dict output)
     from ai_cost_calculator import estimate_cost
 
     payload = {
@@ -68,7 +66,7 @@ Python: Select Interpreter → choose .venv.
                 "input_tokens": 673,
                 "output_tokens": 1290,
                 "cost_usd": None,
-                "latency_ms": 8803.289200004656,
+                "latency_ms": 8803.2892,
                 "error_message": None,
                 "error_type": None
             }
@@ -76,45 +74,133 @@ Python: Select Interpreter → choose .venv.
     }
 
     out = estimate_cost(payload)
-    print(out["ai_usage"][0]["cost_usd"])
+    print(json.dumps(out, indent=2))
 
-**Behavior:**
+**Behavior**
 
-If cost_usd is already filled → unchanged
+- If cost_usd is already filled → unchanged
 
-If status != "success" (default) → skipped
+- If status != "success" (default) → skipped
 
-If the model is not in pricing JSON → skipped
+- If model is not found in pricing → cost remains empty and will send an alert email to support
 
-Output format: cost_usd is a string with 8 decimals (e.g., "0.00025400")
+**Output format:** cost_usd is a string with 8 decimals (e.g., "0.00025400")
 
 ## 5) If your payload is a JSON string (string in → string out)
     from ai_cost_calculator import estimate_cost
 
-    out_json = estimate_cost(in_json)
-## 6) Pricing updates (when prices change)
-If you installed from a ZIP (folder path install)
-If you unzip the new version to the same folder path you installed from (e.g. C:\temp\Final-Cost-Calculator):
+    out_json = estimate_cost(in_json_string)
+## 6) Pricing source and overrides
+**Default pricing (built-in)**
+
+The package reads pricing from the bundled file:
+
+    ai_cost_calculator/model_pricing.json
+
+**Override pricing file (optional)**
+
+If you want pricing updates without changing the package version:
+
+    out = estimate_cost(payload, pricing_path="path/to/model_pricing.json")
+
+## 7) Keeping pricing updated (recommended)
+
+If you installed the calculator from a Git repository, pull the latest changes regularly so you always have the newest pricing:
+
+    cd /path/to/Final-Cost-Calculator
+    git pull
+
+
+If your main project uses an editable install pointing to that folder, the updated pricing will be used immediately (no reinstall needed).
+
+If you are using a ZIP handoff instead of Git, you must replace the folder contents with the newest ZIP version to update pricing.
+
+## 8) Optional: Email alerts for unknown models
+The calculator can send an email alert when an unknown model is encountered.
+
+**Configuration**
+
+The package reads configuration from environment variables **(the caller/app should load env).**
+
+Use **.env.example** as a template (do not commit real .env values):
+
+    // Request for the X-Internal-Token
+    NOOKO_INTERNAL_TOKEN=__SET_ME__
+
+    // Add to the email: Boss Sandro's email, Ms. Kristina's email, support@nooko.ai
+    // For Testing: Set it to oyur email
+    NOOKO_ALERT_EMAIL_TO=__SET_RECIPIENTS__   # comma-separated
+    
+    // For testing - Does not proceed with sending an email
+    NOOKO_ALERT_EMAIL_DRY_RUN=1
+
+    // 
+    NOOKO_ALERT_EMAIL_DEBUG=0`
+Notes:
+
+Do not commit real tokens or personal recipient addresses.
+
+**NOTE:**
+
+- For safe local testing, keep **NOOKO_ALERT_EMAIL_DRY_RUN=1** (it prints the request instead of sending email).
+
+- To actually send: set **NOOKO_ALERT_EMAIL_DRY_RUN=0** and ensure the correct token is available in the runtime environment.
+
+## 9) Demo / local test run
+    python examples/demo_run.py
+
+***(Ensure you installed the package first, e.g. pip install -e .)***
+
+## 10) Pricing updates (when prices change)
+If installed editable from a folder path (ZIP install)
+If you replace/update the files in the same folder path you installed from:
+
 ✅ Usually no reinstall needed (editable install points to that folder)
 
 If the folder path changes, reinstall using the new path:
 
     pip install -e C:\temp\Final-Cost-Calculator-new
 
-If you installed from a Git repo
+If installed from a Git repo
 
-    Pull the latest changes:
+**Pull latest changes:**
 
-git pull
-✅ Usually no reinstall needed. Re-run pip install -e . only if dependencies or package structure changed.
+    git pull
 
-If you want pricing updates without updating the package
-Keep your own pricing JSON and override:
+✅ Usually no reinstall needed. Re-run ***pip install -e .*** only if dependencies or package structure changed.
 
-    out = estimate_cost(payload, pricing_path="path/to/ai-model_pricing.json")
-7) Optional: override pricing JSON file
+## 11) Quick uninstall
+pip uninstall ai-cost-calculator
 
-    out = estimate_cost(payload, pricing_path="path/to/ai-model_pricing.json")
-8) Quick uninstall (if you only needed it for testing)
+## Pricing JSON (where to find it + how to update it)
 
-    pip uninstall ai-cost-calculator
+### Where the default pricing is stored
+The default pricing file is bundled inside the package:
+
+`src/ai_cost_calculator/model_pricing.json`
+
+This file is read automatically by `get_pricing()` when `pricing_path` is not provided.
+
+### How to update pricing (recommended workflow)
+1) Open and edit:
+    
+    `src/ai_cost_calculator/model_pricing.json`
+
+2) Update/add the model entry (and aliases if needed).
+3) Save the file and commit the change.
+
+### Keeping pricing up to date (if installed from Git)
+If you installed the calculator from a Git repository, pull the latest changes regularly so you always use the newest pricing:
+
+    cd /path/to/Final-Cost-Calculator
+    git pull
+    
+If your application installed it in editable mode **(pip install -e ...)**, pricing updates take effect immediately after pulling.
+
+**Optional:** override pricing without changing the package
+If you want to use your own pricing JSON (without modifying the package), pass pricing_path:
+
+    out = estimate_cost(payload, pricing_path="path/to/model_pricing.json")
+This is useful if pricing changes frequently and you want to manage pricing separately.
+
+
