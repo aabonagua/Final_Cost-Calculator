@@ -30,10 +30,7 @@ def i(x: Any, default: int = 0) -> int:
 # Format Decimal as USD string with 8 decimal places
 def fmt_usd_8(amount: Decimal) -> str:
     q = amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
-    s = format(q, "f")
-    if "." in s:
-        s = s.rstrip("0").rstrip(".")
-    return s
+    return format(q, "f") 
 
 # Check if cost_usd is empty
 def is_empty_cost(v: Any) -> bool:
