@@ -10,5 +10,7 @@ def get_pricing(pricing_path: Optional[str] = None) -> Dict[str, Any]:
         with open(pricing_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    with resources.files("ai_cost_calculator").joinpath("model_pricing.json").open("r", encoding="utf-8") as f:
+    with resources.files("ai_cost_calculator").joinpath("data", "model_pricing.json").open(
+        "r", encoding="utf-8"
+    ) as f:
         return json.load(f)

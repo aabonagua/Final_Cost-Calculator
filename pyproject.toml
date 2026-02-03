@@ -13,7 +13,7 @@ dependencies = []
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-ai_cost_calculator = ["model_pricing.json"]
+ai_cost_calculator = ["data/model_pricing.json"]
 
 [project.scripts]
 ai-cost = "ai_cost_calculator.calculator:main"
